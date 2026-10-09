@@ -1,0 +1,459 @@
+{
+  "info": {
+    "name": "Job Application Tracker — Day 1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "SETUP: Use Node.js 20.19 or newer. In a terminal, cd \"D:\\Job Application Tracker\\server\" and run npm.cmd install in PowerShell. Copy .env.example to .env. Start a local MongoDB Community Server service with the sample URI, or replace MONGODB_URI with your MongoDB Atlas driver connection string (database job_application_tracker). For Atlas, create a database user and allow your development IP in Network Access; encode special characters in the password. Run npm.cmd run dev in PowerShell (uses Node built-in watch mode). Expect MongoDB connected and Server listening on http://localhost:5000.\n\nImport this collection into Postman. baseUrl defaults to http://localhost:5000. Run the requests in order with Collection Runner, or send each individually. Create automatically saves applicationId. PATCH updates the same application, and DELETE removes only that record. The final GET checks that deletion persisted. Assertions verify statuses and response bodies. To check persistence across restarts, create a record, restart the server and run GET before deleting it. The backend accepts applicationDate as YYYY-MM-DD and returns ISO dates. A server restart is needed after editing .env. Never commit .env or paste credentials into requests. Automated npm test tests use substitute database methods; this collection verifies real MongoDB behavior."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "applicationId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Create application (defaults)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Returns 201\", function () { pm.response.to.have.status(201); });",
+              "if (pm.response.code === 201) {",
+              "  const data = pm.response.json();",
+              "  pm.collectionVariables.set(\"applicationId\", data._id);",
+              "  pm.test(\"Defaults and required fields\", function () {",
+              "    pm.expect(data.company).to.eql(\"Example Company\");",
+              "    pm.expect(data.role).to.eql(\"Junior Developer\");",
+              "    pm.expect(data.status).to.eql(\"Applied\");",
+              "    pm.expect(Number.isNaN(Date.parse(data.applicationDate))).to.eql(false);",
+              "    pm.expect(Math.abs(Date.now() - Date.parse(data.applicationDate))).to.be.below(60000);",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"company\": \"Example Company\",\n  \"role\": \"Junior Developer\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/applications"
+      }
+    },
+    {
+      "name": "02 List applications",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Returns 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"List contains created application\", function () {",
+              "  const data = pm.response.json(); pm.expect(data).to.be.an(\"array\");",
+              "  pm.expect(data.some(item => item._id === pm.collectionVariables.get(\"applicationId\"))).to.eql(true);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/applications"
+      }
+    },
+    {
+      "name": "03 Get application",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Returns 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Correct application\", function () { pm.expect(pm.response.json()._id).to.eql(pm.collectionVariables.get(\"applicationId\")); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}"
+      }
+    },
+    {
+      "name": "04 Update status and optional fields",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Returns 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Partial update preserves required fields\", function () {",
+              "  const data = pm.response.json();",
+              "  pm.expect(data.status).to.eql(\"Interview\");",
+              "  pm.expect(data.company).to.eql(\"Example Company\");",
+              "  pm.expect(data.role).to.eql(\"Junior Developer\");",
+              "  pm.expect(data.applicationDate).to.eql(\"2026-10-09T00:00:00.000Z\");",
+              "  pm.expect(data.jobLink).to.eql(\"https://example.com/jobs/1\");",
+              "  pm.expect(data.notes).to.eql(\"Recruiter call scheduled\");",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"Interview\",\n  \"applicationDate\": \"2026-10-09\",\n  \"jobLink\": \"https://example.com/jobs/1\",\n  \"notes\": \"Recruiter call scheduled\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}"
+      }
+    },
+    {
+      "name": "05 Verify saved update",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Returns 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Update persisted\", function () { pm.expect(pm.response.json().status).to.eql(\"Interview\"); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}"
+      }
+    },
+    {
+      "name": "06 Reject missing required fields",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Returns 400\", function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"company\": \"Example Company\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/applications"
+      }
+    },
+    {
+      "name": "07 Reject invalid status",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Returns 400\", function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"Pending\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}"
+      }
+    },
+    {
+      "name": "08 Reject impossible date",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Returns 400\", function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"applicationDate\": \"2026-02-30\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}"
+      }
+    },
+    {
+      "name": "09 Reject invalid job URL",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Returns 400\", function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jobLink\": \"javascript:alert(1)\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}"
+      }
+    },
+    {
+      "name": "10 Reject empty update",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Returns 400\", function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}"
+      }
+    },
+    {
+      "name": "11 Reject unknown fields",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Returns 400\", function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"unexpected\": \"value\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}"
+      }
+    },
+    {
+      "name": "12 Reject invalid ID",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Returns 400\", function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/applications/invalid-id"
+      }
+    },
+    {
+      "name": "13 Reject malformed JSON",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Returns 400\", function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"company\":",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/applications"
+      }
+    },
+    {
+      "name": "14 Delete application",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Returns 204\", function () { pm.response.to.have.status(204); });",
+              "pm.test(\"Empty response body\", function () { pm.expect(pm.response.text()).to.eql(\"\"); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}"
+      }
+    },
+    {
+      "name": "15 Confirm deleted application is missing",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Returns 404\", function () { pm.response.to.have.status(404); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}"
+      }
+    }
+  ]
+}

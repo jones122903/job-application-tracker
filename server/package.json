@@ -1,0 +1,20 @@
+{
+  "name": "job-application-tracker-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Day 1 REST API for the Job Application Tracker",
+  "type": "module",
+  "engines": { "node": ">=20.19.0" },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "check": "node scripts/check.js && npm audit",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "mongoose": "^9.10.3"
+  }
+}
